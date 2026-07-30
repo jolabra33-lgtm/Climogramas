@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Taller de Climogramas: localiza un lugar, introduce sus datos mensuales y genera el climograma con análisis climático automático.">
+<title>Taller de Climogramas</title>
+
+<!-- Home-screen / iPad behaviour -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Climogramas">
+<meta name="theme-color" content="#182338">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root{
+    --ink:#182338;
+    --ink-soft:#3C4A66;
+    --muted:#5E6779;
+    --paper:#EDEFE8;
+    --card:#FFFFFF;
+    --line:#E2E0D2;
+    --warm:#C1440E;
+    --warm-2:#E2703A;
+    --warm-soft:rgba(193,68,14,0.10);
+    --cool:#1F6E8C;
+    --cool-2:#4C99B5;
+    --cool-soft:rgba(31,110,140,0.12);
+    --gold:#B4790F;
+    --gold-2:#E0A83D;
+    --gold-soft:rgba(180,121,15,0.14);
+    --cold-zone:#4A5D80;
+    --cold-zone-soft:rgba(74,93,128,0.12);
+    --radius:14px;
+    --radius-sm:9px;
+    --shadow-sm:0 1px 2px rgba(20,30,50,.05);
+    --shadow-md:0 10px 28px rgba(20,30,50,.08);
+    --shadow-lg:0 20px 46px rgba(20,30,50,.14);
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', system-ui, -apple-system, sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:960px; margin:0 auto; padding:30px 24px max(90px, env(safe-area-inset-bottom) + 40px); }
+
+  /* ---- Hero ---- */
+  header.hero{
+    position:relative;
+    padding:34px 36px 40px;
+    margin-bottom:30px;
+    border-radius:18px;
+    background:var(--ink);
+    color:var(--paper);
+    overflow:hidden;
+    box-shadow:var(--shadow-lg);
+  }
+  header.hero::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      radial-gradient(circle at 88% 12%, rgba(224,168,61,0.30), transparent 42%),
+      radial-gradient(circle at 8% 92%, rgba(76,153,181,0.28), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.045) 0px, rgba(255,255,255,0.045) 1px, transparent 1px, transparent 34px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0px, rgba(255,255,255,0.045) 1px, transparent 1px, transparent 34px);
+    pointer-events:none;
+  }
+  .hero-inner{ position:relative; }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--gold-2);
+    font-weight:500;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{ content:""; width:22px; height:1px; background:var(--gold-2); display:inline-block; }
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px, 4.4vw, 48px);
+    line-height:1.05;
+    margin:16px 0 14px;
+    letter-spacing:-0.01em;
+  }
+  .lede{ max-width:64ch; color:rgba(237,239,232,0.82); font-size:16.5px; margin:0; }
+
+  /* ---- Panels ---- */
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-md);
+    padding:26px 28px 30px;
+    margin-bottom:24px;
+    border-top:3px solid var(--accent, var(--ink));
+    animation:riseIn .5s ease both;
+  }
+  .panel.p1{ --accent:var(--cool); }
+  .panel.p2{ --accent:var(--ink); }
+  .panel.p3{ --accent:var(--warm); }
+  .panel.p4{ --accent:var(--gold); }
+  .panel:nth-of-type(2){ animation-delay:.05s; }
+  .panel:nth-of-type(3){ animation-delay:.1s; }
+  .panel:nth-of-type(4){ animation-delay:.15s; }
+  @keyframes riseIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+
+  .panel-head{ display:flex; align-items:flex-start; gap:14px; margin-bottom:16px; }
+  .badge{
+    flex:none; width:36px; height:36px; border-radius:50%;
+    background:var(--accent, var(--ink)); color:#fff;
+    font-family:'Fraunces', serif; font-weight:600; font-size:15px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--accent, var(--ink)) 14%, transparent);
+  }
+  .panel-head-text h2{
+    font-family:'Fraunces', serif; font-weight:600; font-size:21px;
+    margin:5px 0 4px; display:flex; align-items:center; gap:8px;
+  }
+  .panel-head-text h2 svg{ width:19px; height:19px; color:var(--accent, var(--ink)); flex:none; }
+  .panel-head-text p{ margin:0; color:var(--muted); font-size:14.5px; max-width:64ch; }
+
+  /* ---- Step 1: location ---- */
+  .locate-grid{ display:flex; flex-direction:column; gap:14px; }
+  .locate-row{ display:flex; gap:10px; }
+  .locate-row input[type="text"]{
+    flex:1; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius-sm);
+    font-family:'Inter', sans-serif; font-size:16px; background:#fff; color:var(--ink);
+  }
+  .locate-row input[type="text"]:focus-visible, button:focus-visible, input:focus-visible{
+    outline:2px solid var(--cool); outline-offset:2px;
+  }
+  #map{ height:480px; border-radius:var(--radius-sm); border:1px solid var(--line); background:#dfe3e6; }
+  .status-card{
+    background:#F7F6EF; border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:12px 14px; font-family:'IBM Plex Mono', monospace; font-size:12.8px; color:var(--ink-soft);
+    min-height:20px; line-height:1.5;
+  }
+  .status-card.warn{ color:var(--warm); }
+
+  /* ---- Buttons ---- */
+  button{
+    font-family:'Inter', sans-serif; font-weight:600; font-size:14px; border-radius:var(--radius-sm);
+    padding:12px 18px; cursor:pointer; border:1px solid transparent;
+    transition:transform .08s ease, background .15s ease, box-shadow .15s ease;
+    display:inline-flex; align-items:center; gap:7px; min-height:44px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  button svg{ width:15px; height:15px; flex:none; }
+  button:active{ transform:translateY(1px); }
+  .btn-primary{ background:var(--ink); color:var(--paper); }
+  .btn-primary:hover{ background:#2A3B5C; box-shadow:var(--shadow-sm); }
+  .btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn-ghost:hover{ background:rgba(24,35,56,0.05); }
+  .btn-row{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+
+  /* ---- Example gallery ---- */
+  .examples-wrap{ margin-bottom:22px; }
+  .examples-group{ margin-bottom:14px; }
+  .examples-group:last-child{ margin-bottom:0; }
+  .examples-group-title{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--muted); margin:0 0 8px;
+  }
+  .examples-chips{ display:flex; flex-wrap:wrap; gap:9px; }
+  .example-chip{
+    display:flex; align-items:center; gap:9px;
+    background:#fff; border:1px solid var(--line); border-radius:11px;
+    padding:10px 14px 10px 11px; text-align:left; font-weight:500; min-height:44px;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .example-chip:hover, .example-chip:active{ transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:transparent; }
+  .chip-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .chip-text{ display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+  .chip-text strong{ font-size:13.5px; color:var(--ink); }
+  .chip-text span{
+    font-size:11.5px; color:var(--muted); font-weight:400;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px;
+  }
+
+  /* ---- Saved climograms (personal archive) ---- */
+  .saved-section{ margin-bottom:20px; }
+  .saved-section h3{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--muted); margin:0 0 8px;
+  }
+  .saved-empty{ font-size:13.5px; color:var(--muted); margin:0; font-style:italic; }
+  .saved-chip{
+    display:flex; align-items:stretch; border:1px solid var(--line); border-radius:11px;
+    background:#fff; overflow:hidden;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .saved-chip:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:transparent; }
+  .saved-chip-main{
+    display:flex; align-items:center; gap:9px; border:none; background:transparent;
+    padding:10px 12px 10px 11px; text-align:left; font-weight:500; min-height:44px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .saved-chip-delete{
+    border:none; background:transparent; color:var(--muted); padding:0 13px; font-size:17px;
+    line-height:1; border-left:1px solid var(--line); min-height:44px; min-width:40px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .saved-chip-delete:hover{ color:var(--warm); background:rgba(193,68,14,0.08); }
+
+  .save-panel{ margin-top:20px; padding-top:18px; border-top:1px dashed var(--line); }
+  .save-panel h3{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--muted); margin:0 0 10px;
+  }
+  .save-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .save-row input[type="text"]{
+    flex:1; min-width:220px; padding:12px 14px; border:1px solid var(--line);
+    border-radius:var(--radius-sm); font-family:'Inter', sans-serif; font-size:16px; background:#fff;
+  }
+  .save-status{
+    font-size:12.8px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace;
+    min-height:16px; margin-bottom:2px;
+  }
+  .save-status.warn{ color:var(--warm); }
+
+  /* ---- Step 2: table ---- */
+  .table-scroll{ overflow-x:auto; border-radius:var(--radius-sm); border:1px solid var(--line); }
+  table.data-table{ border-collapse:collapse; width:100%; min-width:760px; background:#fff; }
+  table.data-table th, table.data-table td{
+    border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:0; text-align:center;
+    position:relative;
+  }
+  table.data-table th:last-child, table.data-table td:last-child{ border-right:none; }
+  table.data-table thead th{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--ink-soft);
+    background:#F4F3EC; padding:10px 4px; font-weight:500;
+  }
+  table.data-table th.rowlabel, table.data-table td.rowlabel{
+    font-family:'Inter', sans-serif; font-size:13px; font-weight:600; text-align:left;
+    padding:11px 14px; white-space:nowrap; background:#F4F3EC; position:sticky; left:0;
+  }
+  table.data-table td.rowlabel span{ display:block; font-weight:400; color:var(--muted); font-size:11.5px; }
+  .cell-t{ color:var(--warm); }
+  .cell-p{ color:var(--cool); }
+  table.data-table input[type="number"]{
+    width:100%; min-width:56px; border:none; text-align:center; padding:13px 2px;
+    font-family:'IBM Plex Mono', monospace; font-size:16px; background:transparent; color:inherit;
+    -moz-appearance:textfield;
+  }
+  table.data-table input[type="number"]::-webkit-outer-spin-button,
+  table.data-table input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  table.data-table tr.row-t input:focus-visible{ background:var(--warm-soft); }
+  table.data-table tr.row-p input:focus-visible{ background:var(--cool-soft); }
+  .fill-note{ margin-top:10px; font-size:13px; color:var(--gold); font-family:'IBM Plex Mono', monospace; }
+  .cell-tag{
+    position:absolute; top:1px; right:1px; z-index:1;
+    font-family:'IBM Plex Mono', monospace; font-size:8px; font-weight:600;
+    letter-spacing:0.02em; text-transform:uppercase; line-height:1;
+    padding:1.5px 3px 1px; border-radius:0 0 0 5px; pointer-events:none;
+  }
+  .cell-tag.tag-hot{ color:#8A3208; background:rgba(193,68,14,0.22); }
+  .cell-tag.tag-cold{ color:#155A73; background:rgba(76,153,181,0.28); }
+  .cell-tag.tag-wet{ color:#0B3A4A; background:rgba(15,76,99,0.24); }
+  .cell-tag.tag-dry{ color:#7A5209; background:rgba(180,121,15,0.28); }
+
+  /* ---- Step 3: chart ---- */
+  .chart-wrap{ position:relative; height:430px; }
+  #climoChart{ width:100%; height:100%; }
+  .chart-empty, .analysis-empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    text-align:center; color:var(--muted); font-size:14.5px; padding:0 30px;
+  }
+  .legend-row{
+    display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:16px; padding-top:16px;
+    border-top:1px dashed var(--line); font-size:13.5px; color:var(--ink-soft);
+  }
+  .legend-item{ display:flex; align-items:center; gap:7px; }
+  .swatch{ width:16px; height:10px; border-radius:2px; display:inline-block; }
+  .swatch.line{ height:3px; background:var(--warm); border-radius:2px; }
+  .swatch.bar{ background:var(--cool); }
+  .swatch.shade{ background:var(--gold); opacity:0.55; }
+  .table-legend{
+    display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px;
+    font-size:13px; color:var(--ink-soft);
+  }
+  .cell-swatch{ width:14px; height:14px; border-radius:4px; display:inline-block; border:1px solid rgba(0,0,0,0.12); }
+  .cell-swatch.hot{ background:rgba(193,68,14,0.45); }
+  .cell-swatch.cold{ background:rgba(76,153,181,0.55); }
+  .cell-swatch.wet{ background:rgba(15,76,99,0.45); }
+  .cell-swatch.dry{ background:rgba(180,121,15,0.55); }
+
+  /* ---- Step 4: analysis ---- */
+  #analysisBody{ position:relative; min-height:60px; }
+  .analysis-grid{ display:grid; grid-template-columns:1fr; gap:2px 32px; }
+  @media (min-width:760px){ .analysis-grid{ grid-template-columns:1fr 1fr; } }
+  .analysis-block{ margin-bottom:15px; }
+  .analysis-block .k{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--gold); display:block; margin-bottom:4px;
+  }
+  .analysis-block p{ margin:0; color:var(--ink-soft); max-width:62ch; }
+  .mountain-flag{
+    margin:4px 0 18px; padding:11px 16px; border-radius:var(--radius-sm);
+    background:var(--cold-zone-soft); border:1px solid rgba(74,93,128,0.32);
+    font-size:13.5px; color:var(--ink-soft);
+  }
+  .mountain-flag strong{ color:var(--cold-zone); }
+  .conclusion{
+    margin-top:6px; padding:16px 20px; background:var(--gold-soft); border-radius:var(--radius-sm);
+    border:1px solid rgba(180,121,15,0.28);
+  }
+  .conclusion p{ max-width:90ch; }
+  .conclusion strong{ color:var(--ink); }
+  .caveat{ margin-top:10px; font-size:13px; color:var(--muted); max-width:62ch; display:block; }
+  .disclaimer{ margin-top:16px; font-size:12.5px; color:var(--muted); font-style:italic; max-width:90ch; }
+
+  footer{ margin-top:38px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+
+  @media (max-width:640px){
+    .wrap{ padding:18px 14px 70px; }
+    header.hero{ padding:26px 20px 30px; }
+    .panel{ padding:18px 16px; }
+    #map{ height:320px; }
+  }
+  .print-only{ display:none; }
+  @media print{
+    body{ background:#fff; }
+    .no-print{ display:none !important; }
+    header.hero, .panel.p1, .panel.p4, footer{ display:none !important; }
+    .panel.p2 .panel-head, .panel.p2 .examples-wrap, .panel.p2 .btn-row, .panel.p2 .fill-note, .panel.p2 .saved-section, .panel.p2 .save-panel{ display:none !important; }
+    .panel.p3 .panel-head{ display:none !important; }
+    .panel{ box-shadow:none; border:none; padding:0; margin-bottom:22px; break-inside:avoid; animation:none; }
+    .table-scroll{ border:1px solid #999; }
+    table.data-table th, table.data-table td{ border-color:#999 !important; }
+    .print-only{
+      display:block; font-family:'Fraunces', serif; font-weight:600; font-size:19px;
+      color:#000; margin:0 0 14px;
+    }
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{ scroll-behavior:auto; }
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Geografía · Climogramas</div>
+      <h1>Taller de Climogramas</h1>
+      <p class="lede">Localiza un lugar sobre un mapa satelital, introduce sus temperaturas y precipitaciones mensuales, y construye el climograma. La aplicación identifica los meses clave y propone, a grandes rasgos, la zona climática y el tipo de clima.</p>
+    </div>
+  </header>
+
+  <div class="print-only" id="printTitle"></div>
+
+  <!-- STEP 1: LOCATION -->
+  <section class="panel p1">
+    <div class="panel-head">
+      <div class="badge">1</div>
+      <div class="panel-head-text">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.4"/></svg>Localiza el lugar</h2>
+        <p>Escribe el nombre del lugar y búscalo sobre el mapa satelital. Con la latitud y la altitud precisamos el hemisferio, la zona climática y si se trata de un clima de montaña.</p>
+      </div>
+    </div>
+    <div class="locate-grid">
+      <div class="locate-row">
+        <input type="text" id="placeName" placeholder="Ej.: Valencia, España" autocomplete="off">
+        <button class="btn-primary" id="btnSearch">Buscar</button>
+      </div>
+      <div class="status-card" id="statusLine" aria-live="polite">Todavía no se ha localizado ningún lugar.</div>
+      <div id="map" aria-label="Mapa satelital de localización del lugar buscado"></div>
+    </div>
+  </section>
+
+  <!-- STEP 2: DATA TABLE -->
+  <section class="panel p2">
+    <div class="panel-head">
+      <div class="badge">2</div>
+      <div class="panel-head-text">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="20"/></svg>Introduce los datos mensuales</h2>
+        <p>Rellena la temperatura media (°C) y la precipitación total (mm) de cada mes, o carga uno de los ejemplos de referencia.</p>
+      </div>
+    </div>
+
+    <div class="saved-section">
+      <h3>Tus climogramas guardados</h3>
+      <div id="savedWrap"></div>
+    </div>
+
+    <div class="examples-wrap" id="examplesWrap"></div>
+
+    <div class="btn-row">
+      <button class="btn-ghost" id="btnClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>Vaciar tabla</button>
+      <button class="btn-ghost" id="btnResetAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>Reiniciar todo (lugar y tabla)</button>
+    </div>
+
+    <div class="table-scroll">
+      <table class="data-table" id="dataTable">
+        <thead>
+          <tr>
+            <th class="rowlabel"></th>
+            <th>Ene</th><th>Feb</th><th>Mar</th><th>Abr</th><th>May</th><th>Jun</th>
+            <th>Jul</th><th>Ago</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dic</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-t">
+            <td class="rowlabel cell-t">T (°C)<span>media mensual</span></td>
+          </tr>
+          <tr class="row-p">
+            <td class="rowlabel cell-p">P (mm)<span>total mensual</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fill-note" id="fillNote" style="display:none;"></div>
+    <div class="table-legend">
+      <span class="legend-item"><span class="cell-swatch hot"></span>Mes más cálido</span>
+      <span class="legend-item"><span class="cell-swatch cold"></span>Mes más frío</span>
+      <span class="legend-item"><span class="cell-swatch wet"></span>Mes más lluvioso</span>
+      <span class="legend-item"><span class="cell-swatch dry"></span>Mes más seco</span>
+    </div>
+
+    <div class="save-panel">
+      <h3>Guardar y archivar</h3>
+      <div class="save-row">
+        <input type="text" id="saveName" placeholder="Nombre para guardar (ej. Valencia · 3ºA · 2025)">
+        <button class="btn-primary" id="btnSaveCurrent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Guardar climograma actual</button>
+      </div>
+      <div class="save-status" id="saveStatus" aria-live="polite"></div>
+      <div class="btn-row" style="margin-bottom:0;">
+        <button class="btn-ghost" id="btnExportAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>Exportar todos (.json)</button>
+        <button class="btn-ghost" id="btnImportAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Importar (.json)</button>
+        <input type="file" id="importFileInput" accept=".json,application/json" style="display:none">
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3: CHART -->
+  <section class="panel p3">
+    <div class="panel-head">
+      <div class="badge">3</div>
+      <div class="panel-head-text">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="12" width="3" height="7"/><rect x="11" y="7" width="3" height="12"/><rect x="16" y="3" width="3" height="16"/></svg>Climograma</h2>
+        <p>La barra representa la precipitación y la línea la temperatura, con la escala de precipitación siempre al doble que la de temperatura. Pasa el cursor por encima para ver cada valor.</p>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="climoChart"></canvas>
+      <div class="chart-empty no-print" id="chartEmpty">El climograma aparecerá aquí en cuanto completes la tabla de datos.</div>
+    </div>
+    <div class="legend-row no-print">
+      <span class="legend-item"><span class="swatch line"></span>Temperatura (°C)</span>
+      <span class="legend-item"><span class="swatch bar"></span>Precipitación (mm)</span>
+      <span class="legend-item"><span class="swatch shade"></span>Mes seco (P &lt; 2×T)</span>
+    </div>
+    <div class="btn-row no-print" style="margin-top:16px; margin-bottom:0;">
+      <button class="btn-ghost" id="btnPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir climograma y tabla</button>
+    </div>
+  </section>
+
+  <!-- STEP 4: ANALYSIS -->
+  <section class="panel p4">
+    <div class="panel-head">
+      <div class="badge">4</div>
+      <div class="panel-head-text">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Análisis climático (aproximado)</h2>
+        <p>Interpretación automática siguiendo los criterios básicos de lectura de un climograma.</p>
+      </div>
+    </div>
+    <div id="analysisBody">
+      <div class="analysis-empty" id="analysisEmpty">El análisis aparecerá aquí en cuanto completes la tabla de datos. Si además localizas el lugar en el mapa, el análisis será más preciso.</div>
+    </div>
+  </section>
+
+  <footer>
+    Herramienta creada para el aula de Geografía. Los datos se procesan en tu propio navegador: no se envían ni se guardan en ningún servidor. La clasificación climática es orientativa y simplificada, calibrada sobre los criterios y ejemplos del material de clase; no sustituye una clasificación rigurosa (por ejemplo, Köppen).
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var MONTH_ABBR = ['E','F','M','A','M','J','J','A','S','O','N','D'];
+  var MONTH_FULL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var MONTH_FULL_CAP = MONTH_FULL.map(function(m){ return m.charAt(0).toUpperCase()+m.slice(1); });
+
+  /* ---------------------------------------------------------------
+     EXAMPLE DATA (real monthly normals, taken from the class reference material)
+  ----------------------------------------------------------------*/
+  var EXAMPLES = [
+    { id:'manaos', name:'Manaos', country:'Brasil', label:'Ecuatorial', group:'calida',
+      lat:-3.10, lon:-60.02, elev:92,
+      T:[26,26,25.9,26,26.2,26.3,26.5,27.2,27.5,27.5,27.1,26.6],
+      P:[263,262,297.9,282.7,203.7,103.1,66.9,45.6,63,111.1,161,219.8] },
+    { id:'chennai', name:'Chennai (Madrás)', country:'India', label:'Tropical', group:'calida',
+      lat:13.08, lon:80.27, elev:6,
+      T:[24.6,25.7,27.6,29.9,32.1,32.1,30.6,29.9,29.4,28,26,24.8],
+      P:[29.4,9.4,9.3,16.7,43.9,52.3,99.2,123.7,124.7,284.9,345.4,137.7] },
+    { id:'cairo', name:'El Cairo', country:'Egipto', label:'Desértico cálido', group:'calida',
+      lat:30.04, lon:31.24, elev:23,
+      T:[13.8,15.2,17.4,21.4,24.7,27.3,27.9,27.9,26.3,23.7,19.1,15.1],
+      P:[5.1,3.8,3.7,1.5,1,0.2,0,0,0,1,2.5,5.7] },
+    { id:'lanzarote', name:'Lanzarote', country:'Canarias, España', label:'Subtropical árido', group:'calida',
+      lat:28.9631, lon:-13.5477, elev:14,
+      T:[16.9,17.3,18.4,18.6,19.9,21.6,23.7,24.7,24.5,22.4,20.2,17.9],
+      P:[25,18,12,6,2,0,0,0,2,6,15,26] },
+    { id:'valencia', name:'Valencia', country:'España', label:'Mediterráneo', group:'templada',
+      lat:39.4699, lon:-0.3763, elev:15,
+      T:[11.5,12.3,13.6,15.3,18.2,21.7,24.6,25,22.9,19,14.6,12],
+      P:[32,30,34,40,33,23,9,21,47,94,57,45] },
+    { id:'cuenca', name:'Cuenca', country:'España', label:'Mediterráneo continentalizado', group:'templada',
+      lat:40.07, lon:-2.1374, elev:940,
+      T:[4.2,5.2,7.4,9.7,13.6,18.3,22.4,22.1,18.6,12.9,7.7,4.8],
+      P:[52,59,41,61,58,51,16,17,40,53,61,51] },
+    { id:'dublin', name:'Dublín', country:'Irlanda', label:'Oceánico', group:'templada',
+      lat:53.3498, lon:-6.2603, elev:20,
+      T:[5,5,6.4,8,10.6,13.5,15.2,14.9,13.2,10.6,7.1,5.9],
+      P:[63.7,50.6,51.7,49.3,56.4,55.1,65.2,76.5,62.3,73.4,68.8,58.5] },
+    { id:'moscu', name:'Moscú', country:'Rusia', label:'Continental', group:'templada',
+      lat:55.7558, lon:37.6173, elev:156,
+      T:[-10.3,-9.1,-4.1,4.4,12.2,16.3,18.5,16.7,10.9,4.2,-2,-7.5],
+      P:[34.4,29,32.7,38.2,51,65.6,81.5,71.8,57.7,50.4,44.1,42.4] },
+    { id:'groenlandia', name:'Estación Nord', country:'Groenlandia', label:'Polar', group:'fria',
+      lat:81.6, lon:-16.7, elev:10,
+      T:[-29.5,-30.3,-30.6,-23.7,-10.5,-0.2,3.3,1.5,-8.6,-19.1,-24.7,-27.1],
+      P:[11.5,10.7,11.4,13.5,8.2,9.2,20,19.8,23.3,16.1,18.2,14.1] },
+    { id:'lhasa', name:'Lhasa', country:'Tíbet, China', label:'Alta montaña', group:'fria',
+      lat:29.652, lon:91.1721, elev:3656,
+      T:[-1.6,1.2,4.8,8.4,12.4,16,15.5,14.7,13.1,8.5,2.6,-1.1],
+      P:[0.3,2.5,3.5,5.8,23.7,71.8,132.1,127.5,58,8.9,1.4,0.5] }
+  ];
+  var GROUP_META = {
+    calida:   { title:'Zona cálida',    color:'var(--warm)' },
+    templada: { title:'Zonas templadas', color:'var(--cool)' },
+    fria:     { title:'Zonas frías / de montaña', color:'var(--cold-zone)' }
+  };
+
+  /* ---------------------------------------------------------------
+     STATE
+  ----------------------------------------------------------------*/
+  var state = { lat:null, lon:null, placeLabel:'', elevation:undefined, elevationLoading:false };
+  var STORAGE_KEY = 'climogramas_guardados_v1';
+  var savedClimograms = [];
+  var map, marker;
+  var chart;
+  var debounceTimer = null;
+
+  /* ---------------------------------------------------------------
+     BUILD DATA TABLE INPUTS
+  ----------------------------------------------------------------*/
+  var tdTCells = [], tdPCells = [];
+  (function buildTable(){
+    var rowT = document.querySelector('tr.row-t');
+    var rowP = document.querySelector('tr.row-p');
+    for(var i=0;i<12;i++){
+      var tdT = document.createElement('td');
+      var inT = document.createElement('input');
+      inT.type = 'number'; inT.step = '0.1'; inT.inputMode = 'decimal';
+      inT.id = 't-'+i; inT.className = 'cell-t';
+      inT.setAttribute('aria-label', 'Temperatura media de ' + MONTH_FULL[i] + ' en grados Celsius');
+      tdT.appendChild(inT); rowT.appendChild(tdT);
+      tdTCells.push(tdT);
+
+      var tdP = document.createElement('td');
+      var inP = document.createElement('input');
+      inP.type = 'number'; inP.step = '1'; inP.min = '0'; inP.inputMode = 'decimal';
+      inP.id = 'p-'+i; inP.className = 'cell-p';
+      inP.setAttribute('aria-label', 'Precipitación total de ' + MONTH_FULL[i] + ' en milímetros');
+      tdP.appendChild(inP); rowP.appendChild(tdP);
+      tdPCells.push(tdP);
+    }
+  })();
+
+  function removeCellTag(td){
+    var tag = td.querySelector('.cell-tag');
+    if(tag) tag.remove();
+  }
+  function addCellTag(td, text, cls){
+    removeCellTag(td);
+    var span = document.createElement('span');
+    span.className = 'cell-tag ' + cls;
+    span.textContent = text;
+    td.appendChild(span);
+  }
+  function clearExtremeHighlights(){
+    tdTCells.forEach(function(td){ td.style.background = ''; removeCellTag(td); });
+    tdPCells.forEach(function(td){ td.style.background = ''; removeCellTag(td); });
+  }
+  function highlightExtremes(monthMaxT, monthMinT, monthMaxP, monthMinP){
+    clearExtremeHighlights();
+    tdTCells[monthMaxT].style.background = 'rgba(193,68,14,0.20)';
+    addCellTag(tdTCells[monthMaxT], 'máx', 'tag-hot');
+    tdTCells[monthMinT].style.background = 'rgba(76,153,181,0.30)';
+    addCellTag(tdTCells[monthMinT], 'mín', 'tag-cold');
+    tdPCells[monthMaxP].style.background = 'rgba(15,76,99,0.22)';
+    addCellTag(tdPCells[monthMaxP], 'máx', 'tag-wet');
+    tdPCells[monthMinP].style.background = 'rgba(180,121,15,0.28)';
+    addCellTag(tdPCells[monthMinP], 'mín', 'tag-dry');
+  }
+
+  function onCellInput(){
+    if(debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(update, 250);
+  }
+  for(var i=0;i<12;i++){
+    document.getElementById('t-'+i).addEventListener('input', onCellInput);
+    document.getElementById('p-'+i).addEventListener('input', onCellInput);
+  }
+
+  function readRow(prefix){
+    var arr = [];
+    for(var i=0;i<12;i++){
+      var raw = document.getElementById(prefix+'-'+i).value;
+      var v = parseFloat(raw);
+      arr.push(isNaN(v) ? null : v);
+    }
+    return arr;
+  }
+  function fillRow(prefix, values){
+    for(var i=0;i<12;i++){ document.getElementById(prefix+'-'+i).value = values[i]; }
+  }
+
+  /* ---------------------------------------------------------------
+     EXAMPLE GALLERY
+  ----------------------------------------------------------------*/
+  (function buildExamplesGallery(){
+    var wrap = document.getElementById('examplesWrap');
+    var groups = ['calida','templada','fria'];
+    groups.forEach(function(g){
+      var meta = GROUP_META[g];
+      var groupEl = document.createElement('div');
+      groupEl.className = 'examples-group';
+      var title = document.createElement('div');
+      title.className = 'examples-group-title';
+      title.textContent = meta.title;
+      groupEl.appendChild(title);
+      var chips = document.createElement('div');
+      chips.className = 'examples-chips';
+      EXAMPLES.filter(function(ex){ return ex.group === g; }).forEach(function(ex){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'example-chip';
+        btn.setAttribute('data-ex', ex.id);
+        var dot = document.createElement('span');
+        dot.className = 'chip-dot';
+        dot.style.background = meta.color;
+        var text = document.createElement('span');
+        text.className = 'chip-text';
+        text.innerHTML = '<strong>' + escapeHtml(ex.name) + '</strong><span>' + escapeHtml(ex.country) + ' · ' + escapeHtml(ex.label) + '</span>';
+        btn.appendChild(dot); btn.appendChild(text);
+        btn.addEventListener('click', function(){ loadExample(ex); });
+        chips.appendChild(btn);
+      });
+      groupEl.appendChild(chips);
+      wrap.appendChild(groupEl);
+    });
+  })();
+
+  function loadExample(ex){
+    fillRow('t', ex.T);
+    fillRow('p', ex.P);
+    document.getElementById('placeName').value = ex.name + ', ' + ex.country;
+    state.lat = ex.lat; state.lon = ex.lon; state.placeLabel = ex.name + ', ' + ex.country;
+    state.elevation = ex.elev; state.elevationLoading = false;
+    placeMarker(state.lat, state.lon, state.placeLabel);
+    refreshStatusLine();
+    update();
+  }
+
+  /* ---------------------------------------------------------------
+     SAVED CLIMOGRAMS — personal archive (localStorage) + JSON backup
+  ----------------------------------------------------------------*/
+  function genId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function loadSavedFromStorage(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      savedClimograms = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(savedClimograms)) savedClimograms = [];
+    } catch(e){ savedClimograms = []; }
+  }
+
+  function persistSaved(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedClimograms));
+      return true;
+    } catch(e){
+      setSaveStatus('No se ha podido guardar en este navegador (memoria llena o modo privado). Usa "Exportar todos" para no perder el trabajo.', true);
+      return false;
+    }
+  }
+
+  function setSaveStatus(text, warn){
+    var el = document.getElementById('saveStatus');
+    el.textContent = text;
+    el.className = 'save-status' + (warn ? ' warn' : '');
+  }
+
+  function renderSavedGallery(){
+    var wrap = document.getElementById('savedWrap');
+    wrap.innerHTML = '';
+    if(!savedClimograms.length){
+      var empty = document.createElement('p');
+      empty.className = 'saved-empty';
+      empty.textContent = 'Todavía no has guardado ningún climograma en este dispositivo. Rellena la tabla y pulsa "Guardar climograma actual" más abajo.';
+      wrap.appendChild(empty);
+      return;
+    }
+    var chips = document.createElement('div');
+    chips.className = 'examples-chips';
+    savedClimograms.forEach(function(entry){
+      var chip = document.createElement('div');
+      chip.className = 'saved-chip';
+
+      var mainBtn = document.createElement('button');
+      mainBtn.type = 'button';
+      mainBtn.className = 'saved-chip-main';
+      var dot = document.createElement('span');
+      dot.className = 'chip-dot';
+      dot.style.background = 'var(--gold)';
+      var text = document.createElement('span');
+      text.className = 'chip-text';
+      text.innerHTML = '<strong>' + escapeHtml(entry.name) + '</strong><span title="' + escapeHtml(entry.place || '') + '">' + escapeHtml(entry.place || 'Sin localizar') + '</span>';
+      mainBtn.appendChild(dot); mainBtn.appendChild(text);
+      mainBtn.addEventListener('click', function(){ loadSavedEntry(entry); });
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'saved-chip-delete';
+      delBtn.setAttribute('aria-label', 'Eliminar ' + entry.name);
+      delBtn.textContent = '×';
+      delBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        if(window.confirm('¿Eliminar "' + entry.name + '" de tus climogramas guardados?')){
+          savedClimograms = savedClimograms.filter(function(c){ return c.id !== entry.id; });
+          persistSaved();
+          renderSavedGallery();
+        }
+      });
+
+      chip.appendChild(mainBtn); chip.appendChild(delBtn);
+      chips.appendChild(chip);
+    });
+    wrap.appendChild(chips);
+  }
+
+  function loadSavedEntry(entry){
+    fillRow('t', entry.T);
+    fillRow('p', entry.P);
+    document.getElementById('placeName').value = entry.place || '';
+    state.lat = (typeof entry.lat === 'number') ? entry.lat : null;
+    state.lon = (typeof entry.lon === 'number') ? entry.lon : null;
+    state.placeLabel = entry.place || '';
+    state.elevation = (typeof entry.elevation === 'number') ? entry.elevation : undefined;
+    state.elevationLoading = false;
+    if(state.lat !== null && state.lon !== null){
+      placeMarker(state.lat, state.lon, state.placeLabel);
+    } else if(marker){
+      map.removeLayer(marker); marker = null;
+    }
+    refreshStatusLine();
+    update();
+    setSaveStatus('Cargado "' + entry.name + '".');
+  }
+
+  document.getElementById('btnSaveCurrent').addEventListener('click', function(){
+    var T = readRow('t'), P = readRow('p');
+    var filledT = T.filter(function(v){ return v !== null; }).length;
+    var filledP = P.filter(function(v){ return v !== null; }).length;
+    if(filledT === 0 && filledP === 0){
+      setSaveStatus('Introduce antes los datos de temperatura y precipitación.', true);
+      return;
+    }
+    var Tf = T.map(function(v){ return v === null ? 0 : v; });
+    var Pf = P.map(function(v){ return v === null ? 0 : v; });
+    var nameInput = document.getElementById('saveName');
+    var name = nameInput.value.trim() || state.placeLabel || 'Climograma sin título';
+
+    var existing = savedClimograms.find(function(c){ return c.name === name; });
+    if(existing){
+      if(!window.confirm('Ya existe un climograma guardado como "' + name + '". ¿Quieres sobrescribirlo?')){
+        setSaveStatus('Guardado cancelado. Cambia el nombre para guardarlo como uno nuevo.', true);
+        return;
+      }
+    }
+
+    var entry = {
+      id: existing ? existing.id : genId(),
+      name: name,
+      createdAt: new Date().toISOString(),
+      place: state.placeLabel || '',
+      lat: state.lat, lon: state.lon,
+      elevation: (typeof state.elevation === 'number') ? state.elevation : null,
+      T: Tf, P: Pf
+    };
+    if(existing){
+      savedClimograms = savedClimograms.map(function(c){ return c.id === entry.id ? entry : c; });
+    } else {
+      savedClimograms.push(entry);
+    }
+    if(persistSaved()){
+      setSaveStatus('Guardado como "' + name + '".');
+      nameInput.value = '';
+      renderSavedGallery();
+    }
+  });
+
+  document.getElementById('btnExportAll').addEventListener('click', function(){
+    if(!savedClimograms.length){
+      setSaveStatus('Todavía no tienes ningún climograma guardado para exportar.', true);
+      return;
+    }
+    var payload = {
+      app: 'Taller de Climogramas',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      climograms: savedClimograms
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'climogramas-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setSaveStatus('Exportados ' + savedClimograms.length + ' climograma(s).');
+  });
+
+  document.getElementById('btnImportAll').addEventListener('click', function(){
+    document.getElementById('importFileInput').click();
+  });
+  document.getElementById('importFileInput').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      try{
+        var data = JSON.parse(evt.target.result);
+        var incoming = Array.isArray(data) ? data : (data.climograms || []);
+        incoming = incoming.filter(function(c){
+          return c && Array.isArray(c.T) && Array.isArray(c.P) && c.T.length === 12 && c.P.length === 12;
+        });
+        if(!incoming.length){
+          setSaveStatus('El archivo no contiene climogramas válidos.', true);
+          return;
+        }
+        var existingIds = savedClimograms.map(function(c){ return c.id; });
+        var added = 0;
+        incoming.forEach(function(c){
+          if(!c.id || existingIds.indexOf(c.id) !== -1){ c.id = genId(); }
+          if(!c.name){ c.name = c.place || 'Climograma importado'; }
+          savedClimograms.push(c);
+          existingIds.push(c.id);
+          added++;
+        });
+        persistSaved();
+        renderSavedGallery();
+        setSaveStatus('Importados ' + added + ' climograma(s).');
+      } catch(err){
+        setSaveStatus('El archivo no tiene un formato JSON válido.', true);
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  loadSavedFromStorage();
+  renderSavedGallery();
+
+  document.getElementById('btnClear').addEventListener('click', function(){
+    fillRow('t', Array(12).fill(''));
+    fillRow('p', Array(12).fill(''));
+    update();
+  });
+  document.getElementById('btnResetAll').addEventListener('click', function(){
+    document.getElementById('placeName').value = '';
+    document.getElementById('saveName').value = '';
+    state.lat = null; state.lon = null; state.placeLabel = '';
+    state.elevation = undefined; state.elevationLoading = false;
+    if(marker){ map.removeLayer(marker); marker = null; }
+    map.setView([20, 0], 2);
+    refreshStatusLine();
+    fillRow('t', Array(12).fill(''));
+    fillRow('p', Array(12).fill(''));
+    update();
+  });
+  document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+
+  /* ---------------------------------------------------------------
+     MAP + GEOCODING + ELEVATION (satellite basemap)
+  ----------------------------------------------------------------*/
+  function initMap(){
+    map = L.map('map', { scrollWheelZoom:false }).setView([20, 0], 2);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+    }).addTo(map);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      opacity: 0.9
+    }).addTo(map);
+  }
+  initMap();
+
+  function setStatus(text, warn){
+    var el = document.getElementById('statusLine');
+    el.textContent = text;
+    el.className = 'status-card' + (warn ? ' warn' : '');
+  }
+
+  function zonaFromLat(lat){
+    var a = Math.abs(lat);
+    if(a <= 23.45) return 'intertropical';
+    if(a <= 66.5) return 'templada';
+    return 'polar o circumpolar';
+  }
+
+  function placeMarker(lat, lon, label){
+    if(marker) map.removeLayer(marker);
+    marker = L.marker([lat, lon]).addTo(map);
+    if(label) marker.bindPopup(label).openPopup();
+    map.flyTo([lat, lon], 6.5);
+  }
+
+  function refreshStatusLine(){
+    if(state.lat === null){
+      setStatus('Todavía no se ha localizado ningún lugar.');
+      return;
+    }
+    var hemi = state.lat >= 0 ? 'Norte' : 'Sur';
+    var zona = zonaFromLat(state.lat);
+    var txt = 'Coordenadas: ' + state.lat.toFixed(2) + '°, ' + state.lon.toFixed(2) + '° · Hemisferio ' + hemi + ' · Zona climática ' + zona;
+    if(state.elevationLoading){
+      txt += ' · Calculando altitud…';
+    } else if(typeof state.elevation === 'number'){
+      txt += ' · Altitud aprox. ' + Math.round(state.elevation) + ' m';
+    }
+    setStatus(txt);
+  }
+
+  function fetchElevation(lat, lon){
+    return new Promise(function(resolve){
+      var controller = ('AbortController' in window) ? new AbortController() : null;
+      var timer = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
+      var opts = controller ? { signal: controller.signal } : {};
+      fetch('https://api.open-elevation.com/api/v1/lookup?locations=' + lat.toFixed(4) + ',' + lon.toFixed(4), opts)
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          clearTimeout(timer);
+          if(data && data.results && data.results.length && typeof data.results[0].elevation === 'number'){
+            resolve(data.results[0].elevation);
+          } else { resolve(null); }
+        })
+        .catch(function(){ clearTimeout(timer); resolve(null); });
+    });
+  }
+
+  function searchPlace(){
+    var q = document.getElementById('placeName').value.trim();
+    if(!q) return;
+    setStatus('Buscando "' + q + '"…');
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=' + encodeURIComponent(q);
+    fetch(url, { headers: { 'Accept':'application/json' } })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || !data.length){
+          setStatus('No se ha encontrado "' + q + '". Prueba a añadir el país, por ejemplo "Cusco, Perú".', true);
+          return;
+        }
+        var place = data[0];
+        var lat = parseFloat(place.lat);
+        var lon = parseFloat(place.lon);
+        state.lat = lat; state.lon = lon;
+        state.placeLabel = place.display_name || q;
+        state.elevation = undefined; state.elevationLoading = true;
+        placeMarker(state.lat, state.lon, state.placeLabel);
+        refreshStatusLine();
+        update();
+        fetchElevation(lat, lon).then(function(elev){
+          if(state.lat === lat && state.lon === lon){
+            state.elevation = elev; state.elevationLoading = false;
+            refreshStatusLine();
+            update();
+          }
+        });
+      })
+      .catch(function(){
+        setStatus('No se ha podido consultar el mapa. Comprueba tu conexión a internet.', true);
+      });
+  }
+  document.getElementById('btnSearch').addEventListener('click', searchPlace);
+  document.getElementById('placeName').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); searchPlace(); }
+  });
+
+  /* ---------------------------------------------------------------
+     CLIMATE CLASSIFICATION LOGIC
+  ----------------------------------------------------------------*/
+  function circularDist(a, b){
+    var d = Math.abs(a - b) % 12;
+    return Math.min(d, 12 - d);
+  }
+
+  function analyzeClimate(T, P, lat, elevation){
+    var sumP = P.reduce(function(a,b){return a+b;}, 0);
+    var meanT = T.reduce(function(a,b){return a+b;}, 0) / 12;
+    var maxT=-Infinity, minT=Infinity, monthMaxT=0, monthMinT=0;
+    var maxP=-Infinity, minP=Infinity, monthMaxP=0, monthMinP=0;
+    T.forEach(function(v,i){ if(v>maxT){maxT=v;monthMaxT=i;} if(v<minT){minT=v;monthMinT=i;} });
+    P.forEach(function(v,i){ if(v>maxP){maxP=v;monthMaxP=i;} if(v<minP){minP=v;monthMinP=i;} });
+    var tempRange = maxT - minT;
+
+    var dryMonths = [];
+    T.forEach(function(t,i){ if(t>0 && P[i] < 2*t) dryMonths.push(i); });
+    var subzeroMonths = [];
+    T.forEach(function(t,i){ if(t<=0) subzeroMonths.push(i); });
+
+    var dryConcentration = 'sin concentración clara a lo largo del año';
+    if(dryMonths.length){
+      var avgSummer = dryMonths.reduce(function(a,i){return a+circularDist(i,monthMaxT);},0)/dryMonths.length;
+      var avgWinter = dryMonths.reduce(function(a,i){return a+circularDist(i,monthMinT);},0)/dryMonths.length;
+      if(avgSummer < avgWinter - 0.5) dryConcentration = 'estación cálida (coincide con el verano térmico)';
+      else if(avgWinter < avgSummer - 0.5) dryConcentration = 'estación fría (coincide con el invierno térmico)';
+    }
+
+    var tempCategory = (minT >= 18) ? 'cálido' : (maxT <= 10 ? 'frío' : 'templado');
+    // thresholds calibrated on the class reference table: ecuatorial >2000mm, desértico <250mm
+    var precipCategory = (sumP > 1000) ? 'húmedo' : (sumP < 250 ? 'muy seco' : 'moderado');
+
+    var zona = null, hemisferio = null;
+    if(lat !== null && lat !== undefined && !isNaN(lat)){
+      hemisferio = lat >= 0 ? 'Norte' : 'Sur';
+      var a = Math.abs(lat);
+      zona = a <= 23.45 ? 'intertropical' : (a <= 66.5 ? 'templada' : 'polar');
+    }
+
+    var dryNearSummer = dryConcentration.indexOf('cálida') !== -1;
+    var climaGuess, vegetacion;
+
+    if(zona === 'intertropical'){
+      if(sumP > 2000 && dryMonths.length <= 2){
+        climaGuess = 'clima ecuatorial';
+        vegetacion = 'selva ecuatorial (bosque denso y siempre verde), con gran diversidad; ríos muy caudalosos todo el año';
+      } else if(precipCategory === 'muy seco'){
+        climaGuess = 'clima desértico cálido';
+        vegetacion = 'vegetación xerófila muy escasa; ríos inexistentes salvo wadis estacionales';
+      } else if(dryMonths.length >= 2){
+        climaGuess = 'clima tropical (de sabana), con estación seca y estación húmeda diferenciadas';
+        vegetacion = 'sabana con árboles dispersos (acacias, baobabs); ríos con grandes variaciones estacionales (estiaje marcado)';
+      } else {
+        climaGuess = 'clima tropical húmedo';
+        vegetacion = 'bosque tropical, algo menos denso que la selva ecuatorial; ríos caudalosos con oscilaciones moderadas';
+      }
+    } else if(zona === 'templada'){
+      if(tempCategory === 'frío'){
+        climaGuess = 'clima frío de latitudes medias o de alta montaña';
+        vegetacion = 'coníferas (taiga) o pradera de alta montaña; ríos de régimen nival (deshielo)';
+      } else if(precipCategory === 'muy seco'){
+        climaGuess = 'clima desértico o estepario';
+        vegetacion = 'estepa y matorral xerófilo; ríos escasos, solo cursos estacionales';
+      } else if(dryMonths.length >= 2 && dryNearSummer){
+        climaGuess = 'clima mediterráneo';
+        vegetacion = 'bosque perennifolio (encinas, alcornoques) y matorral (maquis/garriga); ríos de caudal irregular con estiaje estival';
+      } else if(tempRange > 18 || minT <= -3){
+        climaGuess = 'clima continental';
+        vegetacion = 'bosque boreal (taiga) o estepa según las precipitaciones; ríos que se congelan en invierno y crecen con el deshielo';
+      } else if(dryMonths.length <= 1){
+        climaGuess = 'clima oceánico';
+        vegetacion = 'bosque caducifolio (robles, hayas); ríos de caudal abundante y regular todo el año';
+      } else {
+        climaGuess = 'clima templado de transición';
+        vegetacion = 'vegetación mixta según el grado de humedad; ríos de caudal moderado';
+      }
+    } else if(zona === 'polar'){
+      climaGuess = 'clima polar';
+      vegetacion = 'tundra (musgos y líquenes) o ausencia de vegetación; ríos helados gran parte del año';
+    } else {
+      // sin localización: aproximación solo con temperatura/precipitación
+      if(tempCategory === 'frío'){
+        climaGuess = 'probablemente un clima frío (polar o de alta montaña)';
+        vegetacion = 'vegetación muy escasa o de tundra';
+      } else if(precipCategory === 'muy seco'){
+        climaGuess = 'probablemente un clima desértico o estepario';
+        vegetacion = 'vegetación xerófila muy escasa';
+      } else if(tempCategory === 'cálido' && dryMonths.length >= 2){
+        climaGuess = 'probablemente un clima tropical (de sabana)';
+        vegetacion = 'sabana con árboles dispersos';
+      } else if(tempCategory === 'cálido' && dryMonths.length <= 2){
+        climaGuess = 'probablemente un clima ecuatorial o tropical húmedo';
+        vegetacion = 'selva o bosque tropical';
+      } else if(dryMonths.length >= 2 && dryNearSummer){
+        climaGuess = 'probablemente un clima mediterráneo';
+        vegetacion = 'bosque perennifolio y matorral mediterráneo';
+      } else if(tempRange > 18 || minT <= -3){
+        climaGuess = 'probablemente un clima continental';
+        vegetacion = 'bosque boreal o estepa';
+      } else if(dryMonths.length <= 1){
+        climaGuess = 'probablemente un clima oceánico';
+        vegetacion = 'bosque caducifolio';
+      } else {
+        climaGuess = 'un clima templado indeterminado';
+        vegetacion = 'vegetación variable según la humedad disponible';
+      }
+    }
+
+    // Mountain override: altitude reshapes the climate regardless of latitude zone
+    // (matches the class material's own "paisaje de montaña" category, present in every zone).
+    var mountainOverride = false;
+    if(typeof elevation === 'number' && elevation >= 1200 && zona !== 'polar'){
+      mountainOverride = true;
+      climaGuess = 'clima de montaña';
+      vegetacion = 'vegetación escalonada en pisos bioclimáticos según la altitud: bosque en las zonas más bajas, matorral y pastos en las zonas altas, y ausencia de vegetación en las cumbres';
+    }
+
+    return {
+      sumP: sumP, meanT: meanT, maxT: maxT, minT: minT, monthMaxT: monthMaxT, monthMinT: monthMinT,
+      maxP: maxP, minP: minP, monthMaxP: monthMaxP, monthMinP: monthMinP, tempRange: tempRange,
+      dryMonths: dryMonths, subzeroMonths: subzeroMonths, dryConcentration: dryConcentration,
+      tempCategory: tempCategory, precipCategory: precipCategory, zona: zona, hemisferio: hemisferio,
+      climaGuess: climaGuess, vegetacion: vegetacion, mountainOverride: mountainOverride
+    };
+  }
+
+  /* ---------------------------------------------------------------
+     CHART
+  ----------------------------------------------------------------*/
+  var drySeasonPlugin = {
+    id: 'drySeasonShading',
+    beforeDatasetsDraw: function(chartInstance){
+      var opts = (chartInstance.options.plugins && chartInstance.options.plugins.drySeasonShading) || {};
+      var months = opts.months || [];
+      if(!months.length) return;
+      var ctx = chartInstance.ctx;
+      var area = chartInstance.chartArea;
+      var xScale = chartInstance.scales.x;
+      var bandWidth = (xScale.right - xScale.left) / 12;
+      ctx.save();
+      ctx.fillStyle = 'rgba(180,121,15,0.16)';
+      months.forEach(function(i){
+        var left = xScale.left + i * bandWidth;
+        ctx.fillRect(left, area.top, bandWidth, area.bottom - area.top);
+      });
+      ctx.restore();
+    }
+  };
+  Chart.register(drySeasonPlugin);
+
+  // Note: the warmest/coldest/wettest/driest months are no longer marked on the
+  // chart itself (it got visually busy) — they're highlighted in the data table instead.
+
+  function niceAxis(T, P){
+    var maxT = Math.max.apply(null, T);
+    var minT = Math.min.apply(null, T);
+    var maxP = Math.max.apply(null, P);
+    // The precipitation scale is always exactly double the temperature scale (the
+    // climogram convention), so the temperature axis must stretch far enough that
+    // 2× its max also comfortably fits the real rainfall data — otherwise tall
+    // precipitation bars get clipped even though the temperature line looks fine.
+    var neededForP = maxP / 2;
+    var effectiveMaxT = Math.max(maxT, neededForP);
+    var step = (Math.max(Math.abs(effectiveMaxT), Math.abs(minT)) > 40) ? 10 : 5;
+    var axisMax = Math.ceil((effectiveMaxT + 2) / step) * step;
+    if(axisMax <= 0) axisMax = step;
+    var axisMin = minT < 0 ? Math.floor((minT - 2) / step) * step : 0;
+    return { min: axisMin, max: axisMax };
+  }
+
+  function renderChart(T, P, dryMonths, extremes){
+    var axis = niceAxis(T, P);
+    var precipMin = axis.min * 2;
+    var precipMax = axis.max * 2;
+
+    if(!chart){
+      var ctx = document.getElementById('climoChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: MONTH_ABBR,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Precipitación (mm)',
+              data: P,
+              backgroundColor: 'rgba(31,110,140,0.78)',
+              borderRadius: 3,
+              barPercentage: 0.62,
+              categoryPercentage: 0.7,
+              yAxisID: 'yPrecip'
+            },
+            {
+              type: 'line',
+              label: 'Temperatura (°C)',
+              data: T,
+              borderColor: '#C1440E',
+              backgroundColor: '#C1440E',
+              pointBackgroundColor: '#C1440E',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 1.5,
+              pointRadius: 4,
+              borderWidth: 2.5,
+              tension: 0.35,
+              yAxisID: 'yTemp'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 18 } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            drySeasonShading: { months: dryMonths },
+            tooltip: {
+              backgroundColor: '#182338',
+              titleFont: { family: "'Fraunces', serif", weight: '600', size: 13.5 },
+              bodyFont: { family: "'IBM Plex Mono', monospace", size: 12.5 },
+              padding: 11,
+              cornerRadius: 8,
+              callbacks: {
+                title: function(items){ return MONTH_FULL_CAP[items[0].dataIndex]; },
+                label: function(item){
+                  if(item.dataset.yAxisID === 'yTemp') return 'Temperatura: ' + item.formattedValue + ' °C';
+                  return 'Precipitación: ' + item.formattedValue + ' mm';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#182338', font: { family: "'IBM Plex Mono', monospace", size: 12 } }
+            },
+            yTemp: {
+              position: 'left',
+              min: axis.min,
+              max: axis.max,
+              grid: {
+                color: function(c){ return (c.tick && c.tick.value === 0) ? 'rgba(24,35,56,0.45)' : '#E3E1D4'; },
+                lineWidth: function(c){ return (c.tick && c.tick.value === 0) ? 1.4 : 1; }
+              },
+              ticks: { color: '#C1440E', font: { family: "'IBM Plex Mono', monospace", size: 11 } },
+              title: { display: true, text: 'Temperatura (°C)', color: '#C1440E', font: { family: "'Inter', sans-serif", size: 12, weight: '600' } }
+            },
+            yPrecip: {
+              position: 'right',
+              min: precipMin,
+              max: precipMax,
+              grid: { drawOnChartArea: false },
+              ticks: {
+                color: '#1F6E8C', font: { family: "'IBM Plex Mono', monospace", size: 11 },
+                callback: function(value){ return value < 0 ? '' : value; }
+              },
+              title: { display: true, text: 'Precipitación (mm)', color: '#1F6E8C', font: { family: "'Inter', sans-serif", size: 12, weight: '600' } }
+            }
+          }
+        }
+      });
+    } else {
+      chart.data.datasets[0].data = P;
+      chart.data.datasets[1].data = T;
+      chart.options.plugins.drySeasonShading.months = dryMonths;
+      chart.options.scales.yTemp.min = axis.min;
+      chart.options.scales.yTemp.max = axis.max;
+      chart.options.scales.yPrecip.min = precipMin;
+      chart.options.scales.yPrecip.max = precipMax;
+      chart.update();
+    }
+  }
+
+  /* ---------------------------------------------------------------
+     ANALYSIS TEXT
+  ----------------------------------------------------------------*/
+  function zonaLabel(zona){
+    if(zona === 'intertropical') return 'intertropical';
+    if(zona === 'templada') return 'templada';
+    if(zona === 'polar') return 'polar o circumpolar';
+    return null;
+  }
+
+  function renderAnalysis(r){
+    var html = '<div class="analysis-grid">';
+
+    // 1. Localización
+    html += '<div class="analysis-block"><span class="k">1 · Localización</span><p>';
+    if(state.lat !== null){
+      html += 'El lugar analizado es <strong>' + escapeHtml(state.placeLabel) + '</strong>, situado en el hemisferio ' + r.hemisferio + ' (zona climática ' + zonaLabel(r.zona) + ')';
+      if(typeof state.elevation === 'number'){
+        html += ', a una altitud aproximada de ' + Math.round(state.elevation) + '\u00A0m';
+      }
+      html += '.';
+    } else {
+      html += 'No se ha localizado ningún lugar en el mapa, así que este análisis se basa únicamente en los datos de temperatura y precipitación introducidos.';
+    }
+    html += '</p></div>';
+
+    // 2. Temperaturas
+    var tempQualifier = r.tempCategory === 'cálido' ? 'no baja de 18\u00A0°C en ningún mes'
+      : r.tempCategory === 'frío' ? 'se mantiene baja todo el año'
+      : 'se distinguen claramente las estaciones';
+    html += '<div class="analysis-block"><span class="k">2 · Temperaturas</span><p>';
+    html += 'La temperatura media anual es de ' + r.meanT.toFixed(1) + '\u00A0°C, con una amplitud térmica (diferencia entre el mes más cálido y el más frío) de ' + r.tempRange.toFixed(1) + '\u00A0°C. El mes más cálido es ' + MONTH_FULL[r.monthMaxT] + ' (' + r.maxT + '\u00A0°C) y el más frío ' + MONTH_FULL[r.monthMinT] + ' (' + r.minT + '\u00A0°C), lo que indica un clima térmicamente <strong>' + r.tempCategory + '</strong> (' + tempQualifier + ').';
+    if(r.subzeroMonths.length){
+      var subzeroNames = r.subzeroMonths.map(function(i){ return MONTH_FULL[i]; }).join(', ');
+      html += ' Hay ' + r.subzeroMonths.length + ' mes(es) con heladas (temperatura media igual o inferior a 0\u00A0°C): ' + subzeroNames + '.';
+    }
+    html += '</p></div>';
+
+    // 3. Precipitaciones
+    var precipLabel = r.precipCategory === 'húmedo' ? 'húmedo (supera los 1000\u00A0mm)'
+      : r.precipCategory === 'muy seco' ? 'muy seco o árido (no llega a los 250\u00A0mm)'
+      : 'de precipitaciones moderadas (entre 250 y 1000\u00A0mm)';
+    html += '<div class="analysis-block"><span class="k">3 · Precipitaciones</span><p>';
+    html += 'El total de precipitaciones anuales es de ' + r.sumP.toFixed(0) + '\u00A0mm, por lo que es un clima <strong>' + precipLabel + '</strong>. Las lluvias más abundantes se registran en ' + MONTH_FULL[r.monthMaxP] + ' (' + r.maxP + '\u00A0mm) y las más escasas en ' + MONTH_FULL[r.monthMinP] + ' (' + r.minP + '\u00A0mm).';
+    html += '</p></div>';
+
+    // 4. Distribución
+    html += '<div class="analysis-block"><span class="k">4 · Distribución de las lluvias</span><p>';
+    if(r.dryMonths.length){
+      var names = r.dryMonths.map(function(i){ return MONTH_FULL[i]; }).join(', ');
+      html += 'Se distinguen <strong>' + r.dryMonths.length + ' mes(es) seco(s)</strong> (aquellos en los que la precipitación en mm queda por debajo del doble de la temperatura en °C): ' + names + '. Esta escasez de lluvias se concentra en la ' + r.dryConcentration + '.';
+    } else {
+      html += 'No se aprecian meses secos: en todos los meses con temperatura positiva la precipitación supera el doble de la temperatura, por lo que las lluvias están bien repartidas a lo largo del año.';
+    }
+    if(r.subzeroMonths.length){
+      html += '<br><span class="caveat">En los meses con heladas, el índice de aridez (P&nbsp;&lt;&nbsp;2T) no se aplica: por debajo de 0\u00A0°C la precipitación suele caer en forma de nieve y ese criterio deja de ser representativo.</span>';
+    }
+    html += '</p></div>';
+
+    html += '</div>'; // close analysis-grid
+
+    // Mountain-climate flag (visible, not buried in the conclusion prose)
+    if(r.mountainOverride){
+      html += '<div class="mountain-flag"><strong>Clima de montaña detectado por la altitud.</strong> A unos ' + Math.round(state.elevation) + '\u00A0m, el relieve enfría las temperaturas y suele aumentar las precipitaciones respecto a lo esperable en esa latitud, así que prevalece sobre la zona climática de partida.</div>';
+    }
+
+    // 5. Conclusión
+    html += '<div class="conclusion"><span class="k">5 · Conclusión</span><p>A partir de este análisis, el climograma se aproxima a un <strong>' + r.climaGuess + '</strong>, asociado orientativamente a: ' + r.vegetacion + '.</p></div>';
+
+    html += '<p class="disclaimer">Esta clasificación es una aproximación con fines didácticos, calibrada sobre los criterios y ejemplos del material de clase (zonas cálidas, templadas y frías, más el caso particular de los climas de montaña). No sustituye una clasificación climática rigurosa (por ejemplo, la clasificación de Köppen).</p>';
+
+    document.getElementById('analysisBody').innerHTML = html;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  /* ---------------------------------------------------------------
+     MAIN UPDATE
+  ----------------------------------------------------------------*/
+  function update(){
+    document.getElementById('printTitle').textContent = 'Climograma' + (state.placeLabel ? ' — ' + state.placeLabel : '');
+
+    var T = readRow('t');
+    var P = readRow('p');
+    var filledT = T.filter(function(v){ return v !== null; }).length;
+    var filledP = P.filter(function(v){ return v !== null; }).length;
+    var hasData = filledT > 0 || filledP > 0;
+
+    var chartEmpty = document.getElementById('chartEmpty');
+    var analysisEmpty = document.getElementById('analysisEmpty');
+    var fillNote = document.getElementById('fillNote');
+
+    if(!hasData){
+      chartEmpty.style.display = 'flex';
+      document.getElementById('climoChart').style.visibility = 'hidden';
+      analysisEmpty.style.display = 'flex';
+      document.getElementById('analysisBody').innerHTML = '';
+      document.getElementById('analysisBody').appendChild(analysisEmpty);
+      fillNote.style.display = 'none';
+      clearExtremeHighlights();
+      return;
+    }
+
+    chartEmpty.style.display = 'none';
+    document.getElementById('climoChart').style.visibility = 'visible';
+
+    if(filledT < 12 || filledP < 12){
+      fillNote.style.display = 'block';
+      fillNote.textContent = 'Has completado ' + filledT + '/12 meses de temperatura y ' + filledP + '/12 de precipitación. Los meses vacíos se calculan como 0; rellena los 12 meses de ambas filas para un resultado exacto.';
+    } else {
+      fillNote.style.display = 'none';
+    }
+
+    var Tf = T.map(function(v){ return v === null ? 0 : v; });
+    var Pf = P.map(function(v){ return v === null ? 0 : v; });
+
+    var dryMonthsPreview = [];
+    Tf.forEach(function(t,i){ if(t>0 && Pf[i] < 2*t) dryMonthsPreview.push(i); });
+
+    var monthMaxT=0, monthMinT=0, monthMaxP=0, monthMinP=0, maxT=-Infinity, minT=Infinity, maxP=-Infinity, minP=Infinity;
+    Tf.forEach(function(v,i){ if(v>maxT){maxT=v;monthMaxT=i;} if(v<minT){minT=v;monthMinT=i;} });
+    Pf.forEach(function(v,i){ if(v>maxP){maxP=v;monthMaxP=i;} if(v<minP){minP=v;monthMinP=i;} });
+    var extremes = { T: Tf, P: Pf, monthMaxT: monthMaxT, monthMinT: monthMinT, monthMaxP: monthMaxP, monthMinP: monthMinP };
+    highlightExtremes(monthMaxT, monthMinT, monthMaxP, monthMinP);
+
+    renderChart(Tf, Pf, dryMonthsPreview, extremes);
+
+    var result = analyzeClimate(Tf, Pf, state.lat, state.elevation);
+    renderAnalysis(result);
+  }
+
+})();
+</script>
+</body>
+</html>
